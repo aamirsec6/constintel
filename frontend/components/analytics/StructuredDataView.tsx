@@ -305,7 +305,7 @@ export default function StructuredDataView({
         <DataTable
           data={data}
           columns={getColumns()}
-          keyExtractor={(row, index) => row.id || row.date || index}
+          keyExtractor={(row) => row.id || row.date || String(Math.random())}
           searchable={true}
           pagination={true}
           pageSize={10}
