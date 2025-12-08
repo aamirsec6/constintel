@@ -1,0 +1,166 @@
+# GENERATOR: INSTANCE_ISOLATION
+# Template for isolated Docker Compose instances
+# Each instance has completely separate infrastructure
+# HOW TO USE: Use with instance management scripts (create-instance.sh, start-instance.sh)
+# Environment variables are loaded from infra/instances/<instance-name>/.env
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ${INSTANCE_NAME}-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-constintel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-constintel}
+      POSTGRES_DB: ${DATABASE_NAME:-constintel}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ${INSTANCE_NAME}_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-constintel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ${INSTANCE_NAME}_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${INSTANCE_NAME}-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - ${INSTANCE_NAME}_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ${INSTANCE_NAME}_network
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ${INSTANCE_NAME}-backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-constintel}:${POSTGRES_PASSWORD:-constintel}@postgres:5432/${DATABASE_NAME:-constintel}?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - ${INSTANCE_NAME}_network
+
+  ml-service:
+    build:
+      context: ../services/ml_service
+      dockerfile: Dockerfile
+    container_name: ${INSTANCE_NAME}-ml-service
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-constintel}:${POSTGRES_PASSWORD:-constintel}@postgres:5432/${DATABASE_NAME:-constintel}?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      ML_SERVICE_PORT: 8000
+      ML_MODEL_PATH: /app/models
+    ports:
+      - "${ML_SERVICE_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../services/ml_service:/app
+      - ${INSTANCE_NAME}_ml_models:/app/models
+    networks:
+      - ${INSTANCE_NAME}_network
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: ${INSTANCE_NAME}-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:${BACKEND_PORT:-3000}}
+      NEXT_PUBLIC_ML_API_URL: ${NEXT_PUBLIC_ML_API_URL:-http://localhost:${ML_SERVICE_PORT:-8000}}
+    ports:
+      - "${FRONTEND_PORT:-3001}:3000"
+    depends_on:
+      - backend
+      - ml-service
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+    networks:
+      - ${INSTANCE_NAME}_network
+
+  event-worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.worker
+    container_name: ${INSTANCE_NAME}-event-worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-constintel}:${POSTGRES_PASSWORD:-constintel}@postgres:5432/${DATABASE_NAME:-constintel}?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NODE_ENV: ${NODE_ENV:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+    command: npm run worker:event
+    restart: unless-stopped
+    networks:
+      - ${INSTANCE_NAME}_network
+
+  automation-worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.worker
+    container_name: ${INSTANCE_NAME}-automation-worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-constintel}:${POSTGRES_PASSWORD:-constintel}@postgres:5432/${DATABASE_NAME:-constintel}?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NODE_ENV: ${NODE_ENV:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+    command: npm run worker:automation
+    restart: unless-stopped
+    networks:
+      - ${INSTANCE_NAME}_network
+
+volumes:
+  ${INSTANCE_NAME}_postgres_data:
+  ${INSTANCE_NAME}_redis_data:
+  ${INSTANCE_NAME}_ml_models:
+
+networks:
+  ${INSTANCE_NAME}_network:
+    name: ${INSTANCE_NAME}_network
+

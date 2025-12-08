@@ -1,0 +1,44 @@
+# GENERATOR: CI
+# Deployment workflow (example - customize for your infrastructure)
+# ASSUMPTIONS: Deployment target configured (Kubernetes, ECS, etc.)
+# HOW TO RUN: Triggered on main branch after CI passes
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types:
+      - completed
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy notification
+        run: |
+          echo "🚀 Deployment would happen here"
+          echo "Configure your deployment target:"
+          echo "  - Kubernetes: kubectl apply"
+          echo "  - AWS ECS: aws ecs update-service"
+          echo "  - Docker Compose: docker-compose up -d"
+          echo "  - Custom: Add your deployment commands"
+      
+      # Example: Deploy to Kubernetes
+      # - name: Configure kubectl
+      #   uses: azure/setup-kubectl@v3
+      # 
+      # - name: Deploy to Kubernetes
+      #   run: |
+      #     kubectl apply -f infra/k8s/
+      #   env:
+      #     KUBECONFIG: ${{ secrets.KUBECONFIG }}
+

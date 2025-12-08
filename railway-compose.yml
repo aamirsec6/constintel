@@ -1,0 +1,125 @@
+# Railway-optimized Docker Compose
+# This file is adapted for Railway deployment with managed PostgreSQL and Redis
+# Railway automatically provides $DATABASE_URL and $REDIS_URL environment variables
+# HOW TO USE: Deploy services individually on Railway or use Railway's Docker Compose support
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3000}
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Email configuration
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-smtp}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@constintel.com}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-ConstIntel}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      # Integration secrets
+      SHOPIFY_API_KEY: ${SHOPIFY_API_KEY}
+      SHOPIFY_API_SECRET: ${SHOPIFY_API_SECRET}
+      SHOPIFY_WEBHOOK_SECRET: ${SHOPIFY_WEBHOOK_SECRET}
+      WOOCOMMERCE_API_URL: ${WOOCOMMERCE_API_URL}
+      WOOCOMMERCE_CONSUMER_KEY: ${WOOCOMMERCE_CONSUMER_KEY}
+      WOOCOMMERCE_CONSUMER_SECRET: ${WOOCOMMERCE_CONSUMER_SECRET}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM}
+      # Feature flags
+      ENABLE_AUTO_MERGE: ${ENABLE_AUTO_MERGE:-true}
+      MAX_AUTO_MERGE_PROFILES: ${MAX_AUTO_MERGE_PROFILES:-3}
+      ENABLE_ML_PREDICTIONS: ${ENABLE_ML_PREDICTIONS:-true}
+      # Ollama/LLM configuration
+      OLLAMA_URL: ${OLLAMA_URL}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3:8b}
+      OLLAMA_ENABLED: ${OLLAMA_ENABLED:-false}
+      ENABLE_LLM_INSIGHTS: ${ENABLE_LLM_INSIGHTS:-false}
+      ENABLE_LLM_QUERY: ${ENABLE_LLM_QUERY:-false}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  ml-service:
+    build:
+      context: ./services/ml_service
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      ML_SERVICE_PORT: ${ML_SERVICE_PORT:-8000}
+      ML_MODEL_PATH: ${ML_MODEL_PATH:-/app/models}
+      ML_FEATURE_STORE_PATH: ${ML_FEATURE_STORE_PATH:-/app/features}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_ML_API_URL: ${NEXT_PUBLIC_ML_API_URL}
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+      - ml-service
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Event Processing Worker
+  event-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      NODE_ENV: ${NODE_ENV:-production}
+    depends_on:
+      - backend
+    restart: unless-stopped
+    command: npm run worker:event
+
+  # Automation Processing Worker
+  automation-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      NODE_ENV: ${NODE_ENV:-production}
+    depends_on:
+      - backend
+    restart: unless-stopped
+    command: npm run worker:automation
+

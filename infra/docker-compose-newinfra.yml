@@ -1,0 +1,234 @@
+# GENERATOR: FULL_PLATFORM
+# ASSUMPTIONS: Docker and docker-compose installed, .env file configured
+# HOW TO RUN: docker-compose -f infra/docker-compose.yml up -d
+# 
+# NOTE: This is the default instance (instance-0). For isolated instances,
+# use the instance management scripts (create-instance.sh, start-instance.sh)
+
+version: '3.8'
+
+# Default instance name for backward compatibility
+# Can be overridden with INSTANCE_NAME environment variable
+x-instance: &instance_name ${INSTANCE_NAME:-default}
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ${INSTANCE_NAME:-constintel}-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-constintel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-constintel}
+      POSTGRES_DB: ${POSTGRES_DB:-constintel}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-constintel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${INSTANCE_NAME:-constintel}-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: Redpanda (Kafka alternative)
+  # Uncomment if you want to use Redpanda instead of Redis Streams
+  # redpanda:
+  #   image: docker.redpanda.com/redpandadata/redpanda:latest
+  #   container_name: constintel-redpanda
+  #   command:
+  #     - redpanda
+  #     - start
+  #     - --kafka-addr
+  #     - internal://0.0.0.0:9092,external://0.0.0.0:19092
+  #     - --advertise-kafka-addr
+  #     - internal://redpanda:9092,external://localhost:19092
+  #     - --pandaproxy-addr
+  #     - internal://0.0.0.0:8082,external://0.0.0.0:18082
+  #     - --advertise-pandaproxy-addr
+  #     - internal://redpanda:8082,external://localhost:18082
+  #     - --schema-registry-addr
+  #     - internal://0.0.0.0:8081,external://0.0.0.0:18081
+  #     - --rpc-addr
+  #     - redpanda:33145
+  #     - --advertise-rpc-addr
+  #     - redpanda:33145
+  #     - --smp
+  #     - '1'
+  #     - --memory
+  #     - 1G
+  #     - --mode dev-container
+  #   ports:
+  #     - "19092:19092"
+  #     - "18081:18081"
+  #     - "18082:18082"
+  #   volumes:
+  #     - redpanda_data:/var/lib/redpanda/data
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ${INSTANCE_NAME:-constintel}-backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://constintel:constintel@postgres:5432/constintel?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  ml-service:
+    build:
+      context: ../services/ml_service
+      dockerfile: Dockerfile
+    container_name: ${INSTANCE_NAME:-constintel}-ml-service
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://constintel:constintel@postgres:5432/constintel?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      ML_SERVICE_PORT: 8000
+      ML_MODEL_PATH: /app/models
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../services/ml_service:/app
+      - ml_models:/app/models
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: ${INSTANCE_NAME:-constintel}-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+      NEXT_PUBLIC_ML_API_URL: ${NEXT_PUBLIC_ML_API_URL:-http://localhost:8000}
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+      - ml-service
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+  # Event Processing Worker
+  event-worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.worker
+    container_name: ${INSTANCE_NAME:-constintel}-event-worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://constintel:constintel@postgres:5432/constintel?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NODE_ENV: ${NODE_ENV:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+    command: npm run worker:event
+    restart: unless-stopped
+
+  # Automation Processing Worker
+  automation-worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.worker
+    container_name: ${INSTANCE_NAME:-constintel}-automation-worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://constintel:constintel@postgres:5432/constintel?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NODE_ENV: ${NODE_ENV:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+    command: npm run worker:automation
+    restart: unless-stopped
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ${INSTANCE_NAME:-constintel}-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    depends_on:
+      - backend
+      - ml-service
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ${INSTANCE_NAME:-constintel}-grafana
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  default:
+    name: ${INSTANCE_NAME:-constintel}_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  ml_models:
+  prometheus_data:
+  grafana_data:
+  # redpanda_data:
+

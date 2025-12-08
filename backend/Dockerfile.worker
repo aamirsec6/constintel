@@ -1,0 +1,20 @@
+# GENERATOR: PRD_REDIS_ARCHITECTURE
+# Worker Dockerfile for event and automation workers
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+RUN npx prisma generate
+
+# Workers don't expose ports
+# They connect to Redis and process queues
+
+# Default to event worker, can be overridden
+CMD ["npm", "run", "worker:event"]
+

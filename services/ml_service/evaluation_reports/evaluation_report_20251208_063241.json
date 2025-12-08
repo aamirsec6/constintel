@@ -1,0 +1,15 @@
+{
+  "evaluation_date": "2025-12-08T06:32:41.241876",
+  "brand_id": "19354902-58de-47ad-bdde-0fcf17b68a56",
+  "results": {
+    "churn": {
+      "error": "syntax error at or near \")\"\nLINE 11:             WHERE cp.id IN ()\n                                     ^\n"
+    },
+    "ltv": {
+      "error": "syntax error at or near \")\"\nLINE 4:             WHERE id IN ()\n                                 ^\n"
+    },
+    "segmentation": {
+      "error": "syntax error at or near \")\"\nLINE 17:             WHERE cp.id IN ()\n                                     ^\n"
+    }
+  }
+}

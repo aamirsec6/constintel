@@ -1,0 +1,13 @@
+error,model_type,status
+"syntax error at or near "")""
+LINE 11:             WHERE cp.id IN ()
+                                     ^
+",churn,error
+"syntax error at or near "")""
+LINE 4:             WHERE id IN ()
+                                 ^
+",ltv,error
+"syntax error at or near "")""
+LINE 17:             WHERE cp.id IN ()
+                                     ^
+",segmentation,error

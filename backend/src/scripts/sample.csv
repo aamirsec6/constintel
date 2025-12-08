@@ -1,0 +1,17 @@
+phone,email,loyalty_id,event_type,total,timestamp,product_id,product_name,category
+1234567890,customer1@example.com,LOY001,purchase,99.99,2024-01-15T10:30:00Z,PROD123,Wireless Headphones,Electronics
+0987654321,customer2@example.com,LOY002,purchase,149.99,2024-01-16T14:20:00Z,PROD456,Smart Watch,Electronics
+1122334455,customer3@example.com,LOY003,purchase,79.99,2024-01-17T09:15:00Z,PROD789,Running Shoes,Sports
+2233445566,customer4@example.com,LOY004,purchase,49.99,2024-01-18T16:45:00Z,PROD321,Yoga Mat,Sports
+3344556677,customer5@example.com,LOY005,purchase,199.99,2024-01-19T11:00:00Z,PROD654,Tablet,Electronics
+4455667788,customer6@example.com,LOY006,purchase,29.99,2024-01-20T13:30:00Z,PROD987,Book,Books
+5566778899,customer7@example.com,LOY007,purchase,89.99,2024-01-21T15:20:00Z,PROD147,Jacket,Clothing
+6677889900,customer8@example.com,LOY008,purchase,59.99,2024-01-22T10:10:00Z,PROD258,Lamp,Home
+7788990011,customer9@example.com,LOY009,purchase,39.99,2024-01-23T12:40:00Z,PROD369,Perfume,Beauty
+8899001122,customer10@example.com,LOY010,purchase,119.99,2024-01-24T14:50:00Z,PROD741,Camera,Electronics
+9900112233,customer11@example.com,LOY011,purchase,69.99,2024-01-25T09:25:00Z,PROD852,Sneakers,Clothing
+1011121314,customer12@example.com,LOY012,purchase,34.99,2024-01-26T11:15:00Z,PROD963,Notebook,Books
+1112131415,customer13@example.com,LOY013,purchase,159.99,2024-01-27T16:30:00Z,PROD159,Blender,Home
+1213141516,customer14@example.com,LOY014,purchase,44.99,2024-01-28T10:45:00Z,PROD357,Skincare Set,Beauty
+1314151617,customer15@example.com,LOY015,purchase,94.99,2024-01-29T13:20:00Z,PROD753,Gaming Mouse,Electronics
+

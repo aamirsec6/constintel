@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ML Model Evaluation Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .model-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+        .metric-card { padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .metric-label { font-weight: bold; color: #666; }
+        .metric-value { font-size: 24px; color: #333; }
+        .error { color: red; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>ML Model Evaluation Report</h1>
+    <p><strong>Evaluation Date:</strong> 2025-12-08T06:32:41.241876</p>
+    <p><strong>Brand ID:</strong> 19354902-58de-47ad-bdde-0fcf17b68a56</p>
+    
+    <div class="model-section">
+        <h2>CHURN Model</h2>
+        <p class="error">Error: syntax error at or near ")"
+LINE 11:             WHERE cp.id IN ()
+                                     ^
+</p>
+    </div>
+    <div class="model-section">
+        <h2>LTV Model</h2>
+        <p class="error">Error: syntax error at or near ")"
+LINE 4:             WHERE id IN ()
+                                 ^
+</p>
+    </div>
+    <div class="model-section">
+        <h2>SEGMENTATION Model</h2>
+        <p class="error">Error: syntax error at or near ")"
+LINE 17:             WHERE cp.id IN ()
+                                     ^
+</p>
+    </div>
+</body>
+</html>

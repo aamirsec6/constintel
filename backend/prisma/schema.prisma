@@ -1,0 +1,721 @@
+// GENERATOR: FULL_PLATFORM
+// ASSUMPTIONS: PostgreSQL database, all core tables for unified commerce platform
+// HOW TO RUN: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User - Platform users (admins and brand users)
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  role          String   // "admin", "brand_owner", "brand_user"
+  brandId       String?  @map("brand_id") // Nullable for admins
+  emailVerified Boolean  @default(false) @map("email_verified")
+  emailVerifyToken String? @map("email_verify_token")
+  resetPasswordToken String? @map("reset_password_token")
+  resetPasswordExpires DateTime? @map("reset_password_expires")
+  lastLogin     DateTime? @map("last_login")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  brand Brand? @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([brandId])
+  @@index([role])
+  @@map("user")
+}
+
+// Brand - Brand/organization information
+model Brand {
+  id             String   @id @default(uuid())
+  name           String
+  domain         String?  // Brand domain/website
+  industry       String?  // Industry type
+  plan           String   @default("free") // "free", "pro", "enterprise"
+  status         String   @default("active") // "active", "suspended", "trial"
+  instanceId     String?  @unique @map("instance_id") // ID for isolated infrastructure
+  instanceConfig Json?    @map("instance_config") // Instance-specific settings
+  settings       Json?    // { timezone, currency, integrations_config }
+  apiKey         String?  @unique @map("api_key") // API key for brand
+  onboardingState Json?   @map("onboarding_state") // { step, completed, data }
+  onboardingCompleted Boolean @default(false) @map("onboarding_completed")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  lastActivityAt DateTime? @map("last_activity_at")
+
+  users User[]
+  metrics BrandMetrics[]
+  metricsHistory BrandMetricsHistory[]
+
+  @@index([status])
+  @@index([plan])
+  @@index([createdAt])
+  @@map("brand")
+}
+
+// Brand Metrics - Daily snapshot of brand performance metrics
+model BrandMetrics {
+  id              String   @id @default(uuid())
+  brandId         String   @map("brand_id")
+  date            DateTime @default(now())
+  
+  // Revenue metrics
+  revenue         Decimal  @default(0) @db.Decimal(12, 2)
+  revenueGrowth   Float?   @map("revenue_growth") // Percentage
+  mrr             Decimal? @db.Decimal(12, 2) // Monthly Recurring Revenue
+  
+  // Customer metrics
+  customerCount   Int      @default(0) @map("customer_count")
+  newCustomers    Int      @default(0) @map("new_customers")
+  churnRate       Float?   @map("churn_rate") // Percentage
+  
+  // Order metrics
+  orderCount      Int      @default(0) @map("order_count")
+  orderValue      Decimal  @default(0) @map("order_value") @db.Decimal(12, 2)
+  avgOrderValue   Decimal? @map("avg_order_value") @db.Decimal(12, 2)
+  
+  // Engagement metrics
+  engagementScore Float?   @map("engagement_score") // 0-100
+  activeCustomers Int      @default(0) @map("active_customers")
+  retentionRate   Float?   @map("retention_rate") // Percentage
+  
+  // ML insights
+  mlImpactScore   Float?   @map("ml_impact_score") // 0-100
+  churnReduction  Float?   @map("churn_reduction") // Percentage
+  ltvIncrease     Float?   @map("ltv_increase") // Percentage
+  
+  // Platform usage
+  usageScore      Float?   @map("usage_score") // 0-100
+  apiCalls        Int      @default(0) @map("api_calls")
+  featuresUsed    Json?    @map("features_used") // Array of feature names
+  
+  // Performance score (composite)
+  performanceScore Float?  @map("performance_score") // 0-100 weighted composite
+  trend            String? // "up", "down", "stable"
+  previousScore    Float?  @map("previous_score") // Previous day's score
+  
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, date])
+  @@index([brandId, date])
+  @@index([date])
+  @@index([performanceScore])
+  @@map("brand_metrics")
+}
+
+// Brand Metrics History - Historical metrics for charting and trends
+model BrandMetricsHistory {
+  id              String   @id @default(uuid())
+  brandId         String   @map("brand_id")
+  date            DateTime
+  
+  // Same structure as BrandMetrics but allows multiple entries per day for intraday tracking
+  revenue         Decimal  @default(0) @db.Decimal(12, 2)
+  customerCount   Int      @default(0) @map("customer_count")
+  orderCount      Int      @default(0) @map("order_count")
+  performanceScore Float?  @map("performance_score")
+  trend            String?
+  
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId, date])
+  @@index([date])
+  @@map("brand_metrics_history")
+}
+
+model CustomerRawEvent {
+  id                String   @id @default(uuid())
+  brandId           String   @map("brand_id")
+  payload           Json // Raw event payload (flexible structure)
+  eventType         String   @map("event_type") // e.g., "purchase", "page_view", "whatsapp_message"
+  customerProfileId String?  @map("customer_profile_id") // Nullable until merged
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  customerProfile CustomerProfile? @relation(fields: [customerProfileId], references: [id], onDelete: SetNull)
+
+  @@index([brandId, createdAt])
+  @@index([customerProfileId])
+  @@index([eventType])
+  @@map("customer_raw_event")
+}
+
+model CustomerProfile {
+  id              String   @id @default(uuid())
+  brandId         String   @map("brand_id")
+  identifiers     Json // { phone, email, loyalty_id, qr_id, whatsapp, upi, card_last4, device_id, cookie_id }
+  profileStrength Int      @default(0) @map("profile_strength") // 0-100, based on identifier count/quality
+  lifetimeValue   Decimal  @default(0) @map("lifetime_value") @db.Decimal(12, 2)
+  totalOrders     Int      @default(0) @map("total_orders")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  rawEvents            CustomerRawEvent[]
+  predictions          Prediction?
+  features             Feature[]
+  mergeHistoryAsBase   MergeHistory[]        @relation("BaseProfile")
+  mergeHistoryAsMerged MergeHistory[]        @relation("MergedProfile")
+  productIntents       ProductIntent[]
+  storeVisits          StoreVisit[]
+  inStoreAlerts        InStoreAlert[]
+  automationExecutions AutomationExecution[]
+  campaignExecutions   CampaignExecution[]
+  journey              CustomerJourney?
+  attributions         Attribution[]
+
+  @@index([brandId])
+  @@index([profileStrength])
+  @@map("customer_profile")
+}
+
+model Prediction {
+  profileId       String   @id @map("profile_id")
+  churnScore      Float?   @map("churn_score") // 0-1 probability
+  ltvScore        Float?   @map("ltv_score") // Predicted LTV value
+  recommendations Json? // Array of recommended products/categories
+  segment         String? // e.g., "high_value", "at_risk", "champion"
+  modelVersion    String   @map("model_version") // Timestamp or version tag
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("predictions")
+}
+
+model Feature {
+  id           String   @id @default(uuid())
+  profileId    String   @map("profile_id")
+  featureName  String   @map("feature_name") // e.g., "recency", "frequency", "monetary", "category_affinity"
+  featureValue Json     @map("feature_value") // Flexible value structure
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, featureName])
+  @@index([profileId])
+  @@index([featureName])
+  @@map("features")
+}
+
+model MergeHistory {
+  id              String   @id @default(uuid())
+  baseProfileId   String   @map("base_profile_id")
+  mergedProfileId String   @map("merged_profile_id")
+  reason          String // e.g., "identifier_match", "manual_review"
+  beforeSnapshot  Json?    @map("before_snapshot") // Snapshot of profiles before merge
+  afterSnapshot   Json?    @map("after_snapshot") // Snapshot after merge
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  baseProfile   CustomerProfile @relation("BaseProfile", fields: [baseProfileId], references: [id], onDelete: Cascade)
+  mergedProfile CustomerProfile @relation("MergedProfile", fields: [mergedProfileId], references: [id], onDelete: Cascade)
+
+  @@index([baseProfileId])
+  @@index([mergedProfileId])
+  @@map("merge_history")
+}
+
+model ManualMergeQueue {
+  id         String   @id @default(uuid())
+  profileIds Json     @map("profile_ids") // Array of profile IDs to merge
+  reason     String // Why manual review is needed
+  status     String   @default("pending") // pending, approved, rejected, merged
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("manual_merge_queue")
+}
+
+model ModelVersion {
+  id              String   @id @default(uuid())
+  modelType       String   @map("model_type") // "churn", "ltv", "segmentation"
+  version         String // e.g., "20251203_164344" or "v1.0.0"
+  modelPath       String   @map("model_path") // File path to .pkl file
+  metrics         Json // Evaluation metrics (varies by model type)
+  trainingDate    DateTime @default(now()) @map("training_date")
+  isActive        Boolean  @default(false) @map("is_active") // Only one active per type
+  trainingSamples Int      @map("training_samples")
+  featureCount    Int      @map("feature_count")
+  hyperparameters Json? // Model hyperparameters
+  notes           String? // Optional notes about this version
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([modelType, version])
+  @@index([modelType, isActive])
+  @@index([trainingDate])
+  @@map("model_version")
+}
+
+// Model Evaluation - Store evaluation results for model accuracy testing
+model ModelEvaluation {
+  id        String   @id @default(uuid())
+  brandId   String?  @map("brand_id")
+  modelType String   @map("model_type") // "churn", "ltv", "segmentation", "all"
+  results   Json     // Evaluation results with metrics
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([brandId])
+  @@index([modelType])
+  @@index([createdAt])
+  @@map("model_evaluation")
+}
+
+// Product Intent Tracking - Track customer interest in specific products
+model ProductIntent {
+  id          String  @id @default(uuid())
+  brandId     String  @map("brand_id")
+  profileId   String  @map("profile_id")
+  productId   String  @map("product_id")
+  productName String? @map("product_name")
+  category    String?
+
+  // Intent signals
+  intentType    String @map("intent_type") // "view", "search", "cart_add", "wishlist"
+  intentScore   Float  @default(0) @map("intent_score") // 0-100, calculated
+  sourceChannel String @map("source_channel") // "web", "mobile_app", "whatsapp"
+
+  // Context
+  sessionId    String? @map("session_id")
+  pageUrl      String? @map("page_url")
+  searchQuery  String? @map("search_query")
+  viewDuration Int?    @map("view_duration") // seconds
+
+  // Status
+  status    String    @default("active") // "active", "converted", "expired"
+  expiresAt DateTime? @map("expires_at") // Intent expires after X days
+
+  // Timestamps
+  firstSeenAt DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  convertedAt DateTime? @map("converted_at")
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([brandId, profileId, status])
+  @@index([productId, status])
+  @@index([status, expiresAt])
+  @@index([profileId, status, lastSeenAt])
+  @@map("product_intent")
+}
+
+// Store Visit Tracking - Track physical store visits
+model StoreVisit {
+  id        String   @id @default(uuid())
+  brandId   String   @map("brand_id")
+  profileId String?  @map("profile_id")
+  storeId   String   @map("store_id")
+  storeName String?  @map("store_name")
+
+  // Detection method
+  detectionMethod String @map("detection_method") // "geofence", "qr_scan", "pos_lookup", "checkin", "wifi"
+  location        Json? // { lat, lng, accuracy }
+
+  // Visit details
+  checkInAt  DateTime  @default(now()) @map("check_in_at")
+  checkOutAt DateTime? @map("check_out_at")
+  duration   Int? // minutes
+
+  // Status
+  status String @default("active") // "active", "completed", "abandoned"
+
+  // Linked intents
+  activeIntents Json? @map("active_intents") // Array of product_intent_ids
+
+  profile CustomerProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  alerts  InStoreAlert[]
+
+  @@index([brandId, profileId, checkInAt])
+  @@index([storeId, checkInAt])
+  @@index([status, checkInAt])
+  @@map("store_visit")
+}
+
+// In-Store Alerts - Alerts for store staff
+model InStoreAlert {
+  id        String @id @default(uuid())
+  brandId   String @map("brand_id")
+  storeId   String @map("store_id")
+  visitId   String @map("visit_id")
+  profileId String @map("profile_id")
+
+  // Alert content
+  alertType  String @map("alert_type") // "product_intent", "high_value_customer", "churn_risk"
+  title      String
+  message    String
+  productIds Json   @map("product_ids") // Array of product IDs customer is interested in
+
+  // Delivery
+  deliveryMethod String @map("delivery_method") // "store_app", "sms", "whatsapp", "pos_screen"
+  deliveryStatus String @default("pending") @map("delivery_status") // "pending", "delivered", "viewed", "dismissed"
+
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deliveredAt DateTime? @map("delivered_at")
+  viewedAt    DateTime? @map("viewed_at")
+
+  visit   StoreVisit      @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, deliveryStatus, createdAt])
+  @@index([visitId])
+  @@map("in_store_alert")
+}
+
+// Marketing Automation - Automation rules and triggers
+model MarketingAutomation {
+  id          String  @id @default(uuid())
+  brandId     String  @map("brand_id")
+  name        String
+  description String?
+
+  // Trigger configuration
+  trigger    Json // { type: "churn_risk", threshold: 0.7, event_type: "..." }
+  conditions Json? // { segment: "at_risk", channel: "whatsapp", product_category: "..." }
+
+  // Actions
+  actions Json // [{ type: "send_message", channel: "whatsapp", template: "..." }]
+
+  // Settings
+  enabled  Boolean @default(true)
+  priority Int     @default(0) // Higher priority runs first
+
+  // A/B testing
+  abTestEnabled  Boolean @default(false) @map("ab_test_enabled")
+  abTestVariants Json?   @map("ab_test_variants")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  executions AutomationExecution[]
+
+  @@index([brandId, enabled])
+  @@index([brandId, priority])
+  @@map("marketing_automation")
+}
+
+// Automation Execution - Track automation runs
+model AutomationExecution {
+  id           String @id @default(uuid())
+  automationId String @map("automation_id")
+  profileId    String @map("profile_id")
+
+  // Execution details
+  status          String // "triggered", "executed", "failed", "skipped"
+  triggerReason   String? @map("trigger_reason")
+  actionsExecuted Json?   @map("actions_executed")
+  errorMessage    String? @map("error_message")
+
+  // Timestamps
+  triggeredAt DateTime  @default(now()) @map("triggered_at")
+  executedAt  DateTime? @map("executed_at")
+
+  automation        MarketingAutomation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  CustomerProfile   CustomerProfile?    @relation(fields: [customerProfileId], references: [id])
+  customerProfileId String?
+
+  @@index([automationId, triggeredAt])
+  @@index([profileId, triggeredAt])
+  @@map("automation_execution")
+}
+
+// Campaign - Marketing campaign management
+model Campaign {
+  id          String  @id @default(uuid())
+  brandId     String  @map("brand_id")
+  name        String
+  description String?
+
+  // Campaign configuration
+  campaignType String @map("campaign_type") // "one_time", "recurring", "triggered"
+  schedule     Json? // { start_date, end_date, frequency, time_of_day }
+
+  // Targeting
+  targetSegment  Json? @map("target_segment") // { segment: "champions", rfm: {...}, custom: [...] }
+  targetChannels Json  @map("target_channels") // ["whatsapp", "email", "sms"]
+
+  // Content
+  messageTemplate Json  @map("message_template") // { subject, body, personalization_fields }
+  personalization Json? // { product_recommendations: true, dynamic_offers: true }
+
+  // A/B testing
+  abTestEnabled  Boolean @default(false) @map("ab_test_enabled")
+  abTestVariants Json?   @map("ab_test_variants")
+
+  // Duplicate prevention
+  duplicatePrevention Boolean @default(true) @map("duplicate_prevention")
+  exclusionRules      Json?   @map("exclusion_rules") // { exclude_recent_purchasers: true, exclude_segments: [...] }
+
+  // Status
+  status String @default("draft") // "draft", "scheduled", "active", "paused", "completed"
+
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  scheduledAt DateTime? @map("scheduled_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  executions CampaignExecution[]
+
+  @@index([brandId, status])
+  @@index([brandId, scheduledAt])
+  @@map("campaign")
+}
+
+// Campaign Execution - Track campaign sends and performance
+model CampaignExecution {
+  id         String @id @default(uuid())
+  campaignId String @map("campaign_id")
+  profileId  String @map("profile_id")
+
+  // Execution details
+  channel   String // "whatsapp", "email", "sms", "push"
+  messageId String? @map("message_id") // External message ID
+
+  // Performance metrics
+  sentAt      DateTime? @map("sent_at")
+  deliveredAt DateTime? @map("delivered_at")
+  openedAt    DateTime? @map("opened_at")
+  clickedAt   DateTime? @map("clicked_at")
+  convertedAt DateTime? @map("converted_at")
+
+  // Status
+  status       String  @default("pending") // "pending", "sent", "delivered", "opened", "clicked", "converted", "failed"
+  errorMessage String? @map("error_message")
+
+  // A/B test variant
+  abTestVariant String? @map("ab_test_variant")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  campaign          Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  CustomerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+  customerProfileId String?
+
+  @@index([campaignId, status])
+  @@index([profileId, sentAt])
+  @@index([status, sentAt])
+  @@map("campaign_execution")
+}
+
+// Product - Product catalog with metadata
+model Product {
+  id          String  @id @default(uuid())
+  brandId     String  @map("brand_id")
+  productId   String  @unique @map("product_id") // External product ID
+  name        String
+  description String?
+  category    String?
+  subcategory String?
+
+  // Pricing
+  price    Decimal? @db.Decimal(12, 2)
+  currency String?  @default("USD")
+
+  // Metadata
+  metadata Json? // { brand, color, size, images, etc. }
+
+  // Status
+  active Boolean @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  inventory Inventory[]
+
+  @@index([brandId, category])
+  @@index([brandId, active])
+  @@map("product")
+}
+
+// Inventory - Store-level inventory tracking
+model Inventory {
+  id        String  @id @default(uuid())
+  brandId   String  @map("brand_id")
+  productId String  @map("product_id")
+  storeId   String  @map("store_id")
+  storeName String? @map("store_name")
+
+  // Inventory levels
+  quantity         Int  @default(0)
+  reservedQuantity Int  @default(0) @map("reserved_quantity")
+  reorderPoint     Int? @map("reorder_point")
+  maxStock         Int? @map("max_stock")
+
+  // Demand signals
+  demandScore Float?  @map("demand_score") // Calculated from product intents
+  trending    Boolean @default(false)
+
+  // Timestamps
+  lastUpdated DateTime @default(now()) @map("last_updated")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, storeId])
+  @@index([brandId, storeId])
+  @@index([brandId, trending])
+  @@index([demandScore])
+  @@map("inventory")
+}
+
+// Customer Journey - Journey stage tracking and touchpoints
+model CustomerJourney {
+  id        String @id @default(uuid())
+  brandId   String @map("brand_id")
+  profileId String @map("profile_id")
+
+  // Journey stage
+  currentStage   String   @map("current_stage") // "awareness", "consideration", "purchase", "retention", "advocacy"
+  previousStage  String?  @map("previous_stage")
+  stageChangedAt DateTime @default(now()) @map("stage_changed_at")
+
+  // Touchpoints
+  touchpoints Json // Timeline of all interactions
+
+  // Next best action
+  nextMilestone  String? @map("next_milestone") // "likely_to_purchase_in_7_days"
+  nextBestAction String? @map("next_best_action")
+
+  // Journey score
+  journeyScore Float? @map("journey_score") // Overall engagement score 0-100
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId])
+  @@index([brandId, currentStage])
+  @@index([brandId, journeyScore])
+  @@map("customer_journey")
+}
+
+// Attribution - Multi-touch attribution modeling
+model Attribution {
+  id           String @id @default(uuid())
+  brandId      String @map("brand_id")
+  profileId    String @map("profile_id")
+  conversionId String @map("conversion_id") // Purchase ID or conversion event ID
+
+  // Touchpoints
+  touchpoints Json // All touchpoints before conversion
+
+  // Attribution model
+  attributionModel String @map("attribution_model") // "first_touch", "last_touch", "linear", "time_decay", "position_based", "data_driven"
+
+  // Channel credits
+  channelCredits Json @map("channel_credits") // How much credit each channel gets
+
+  // Conversion details
+  conversionType  String   @map("conversion_type") // "purchase", "signup", "download"
+  conversionValue Decimal? @map("conversion_value") @db.Decimal(12, 2)
+
+  // Timestamps
+  conversionAt DateTime @map("conversion_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([brandId, profileId, conversionAt])
+  @@index([brandId, attributionModel])
+  @@index([conversionAt])
+  @@map("attribution")
+}
+
+// Notification - In-app notifications for users
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  brandId   String?  @map("brand_id")
+  type      String   // "model_update", "customer_digest", etc.
+  title     String
+  message   String
+  metadata  Json?
+  read      Boolean  @default(false)
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, read])
+  @@index([brandId])
+  @@index([createdAt])
+  @@map("notification")
+}
+
+// Notification Event Config - Configure which event types trigger notifications
+model NotificationEventConfig {
+  id              String   @id @default(uuid())
+  brandId         String   @map("brand_id")
+  eventType       String   @map("event_type")
+  enabled         Boolean  @default(true)
+  importance      String   @default("medium") // "high", "medium", "low"
+  digestFrequency String   @default("daily") @map("digest_frequency") // "hourly", "daily"
+
+  @@unique([brandId, eventType])
+  @@index([brandId])
+  @@map("notification_event_config")
+}
+
+// Customer Activity Event - Track events for digest aggregation
+model CustomerActivityEvent {
+  id         String   @id @default(uuid())
+  brandId    String   @map("brand_id")
+  instanceId String   @map("instance_id")
+  profileId  String   @map("profile_id")
+  eventType  String   @map("event_type")
+  eventData  Json     @map("event_data")
+  importance String   @default("medium") // "high", "medium", "low"
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([brandId, instanceId, createdAt])
+  @@index([eventType])
+  @@map("customer_activity_event")
+}
+
+// Customer Event Digest - Aggregated digest notifications
+model CustomerEventDigest {
+  id         String   @id @default(uuid())
+  brandId    String   @map("brand_id")
+  instanceId String   @map("instance_id")
+  periodType String   @map("period_type") // "hourly", "daily"
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  summary     Json     // Summary statistics
+  events      Json     // Event details
+  sentAt      DateTime? @map("sent_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([brandId, instanceId, createdAt])
+  @@index([periodType])
+  @@map("customer_event_digest")
+}
+
+// Webhook Configuration - Configure webhook URLs for notifications
+model WebhookConfiguration {
+  id          String   @id @default(uuid())
+  brandId     String   @map("brand_id")
+  url         String
+  secret      String?  // For signature verification
+  eventTypes  String[] @map("event_types") // ["customer_activity", "model_update"]
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([brandId, enabled])
+  @@map("webhook_configuration")
+}
