@@ -85,7 +85,7 @@ export default function DashboardToolbar({
                 key={preset.label}
                 onClick={() => applyPreset(preset.days)}
                 size="sm"
-                variant={isPresetActive(preset.days) ? 'default' : 'outline'}
+                variant={isPresetActive(preset.days) ? 'secondary' : 'outline'}
                 className={cn(
                   'text-xs font-semibold',
                   isPresetActive(preset.days) && 'shadow-md'
