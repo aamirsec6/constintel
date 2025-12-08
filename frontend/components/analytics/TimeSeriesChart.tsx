@@ -51,7 +51,8 @@ export default function TimeSeriesChart({
   }
 
   const ChartComponent = type === 'area' ? AreaChart : LineChart
-  const DataComponent = type === 'area' ? Area : Line
+  // @ts-ignore - Recharts component types have compatibility issues
+  const DataComponent: any = type === 'area' ? Area : Line
 
   return (
     <ResponsiveContainer width="100%" height={height}>
