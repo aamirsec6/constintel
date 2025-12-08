@@ -17,6 +17,8 @@ load_dotenv()
 router = APIRouter(prefix="/models", tags=["model-registry"])
 
 class ModelVersionResponse(BaseModel):
+    model_config = {'protected_namespaces': ()}
+    
     id: str
     model_type: str
     version: str
