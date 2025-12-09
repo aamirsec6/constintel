@@ -7,24 +7,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import dynamic from 'next/dynamic'
 import AskAI from '@/components/analytics/AskAI'
-
-// Dynamically import Recharts to avoid SSR issues
-// @ts-ignore - Recharts types have compatibility issues with Next.js dynamic imports
-const LineChart = dynamic(() => import('recharts').then(mod => mod.LineChart), { ssr: false })
-// @ts-ignore
-const Line = dynamic(() => import('recharts').then(mod => mod.Line), { ssr: false })
-// @ts-ignore
-const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false })
-// @ts-ignore
-const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false })
-// @ts-ignore
-const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false })
-// @ts-ignore
-const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false })
-// @ts-ignore
-const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false })
+import RevenueChart from '@/components/analytics/RevenueChart'
 
 interface DashboardMetrics {
   totalRevenue: number
@@ -117,28 +101,37 @@ export default function AnalyticsDashboard() {
       setError(null)
 
       const accessToken = localStorage.getItem('accessToken')
-      const response = await fetch(
-        `${apiUrl}/api/analytics/dashboard?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
-        {
-          headers: {
-            'x-brand-id': brandId,
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      )
+      const url = `${apiUrl}/api/analytics/dashboard?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`
+      console.log('[Dashboard] Fetching metrics:', { brandId, url })
+      
+      const response = await fetch(url, {
+        headers: {
+          'x-brand-id': brandId,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
 
+      console.log('[Dashboard] Response status:', response.status)
+      
       if (!response.ok) {
         throw new Error('Failed to fetch metrics')
       }
 
       const data = await response.json()
+      console.log('[Dashboard] API response:', { success: data.success, dataKeys: Object.keys(data.data || {}) })
+      
       if (data.success && data.data) {
         // Ensure chart data is properly formatted with numeric values
         const chartData = (data.data.revenueChart || []).map((point: any) => ({
           date: point.date,
           revenue: typeof point.revenue === 'number' ? point.revenue : parseFloat(point.revenue || '0')
         }))
+        console.log('[Dashboard] Setting metrics:', { 
+          totalRevenue: data.data.totalRevenue, 
+          chartLength: chartData.length,
+          samplePoint: chartData[0]
+        })
         setMetrics({
           ...data.data,
           revenueChart: chartData
@@ -412,95 +405,7 @@ export default function AnalyticsDashboard() {
       <div className="card" style={{ marginBottom: '24px' }}>
         <h2>Revenue Performance</h2>
         <p style={{ color: '#666', marginBottom: '16px' }}>Track revenue trends over time</p>
-        {loading ? (
-          <div style={{
-            minHeight: '400px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#6b7280'
-          }}>
-            Loading chart data...
-          </div>
-        ) : metrics.revenueChart && metrics.revenueChart.length > 0 ? (
-          <div style={{ width: '100%', height: '400px', padding: '16px 0' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart 
-                data={metrics.revenueChart}
-                margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="#6b7280"
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => {
-                    try {
-                      const date = new Date(value)
-                      if (isNaN(date.getTime())) return value
-                      return `${date.getMonth() + 1}/${date.getDate()}`
-                    } catch {
-                      return value
-                    }
-                  }}
-                />
-                <YAxis 
-                  stroke="#6b7280"
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => `$${value.toLocaleString()}`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                  }}
-                  formatter={(value: any) => formatCurrency(Number(value))}
-                  labelFormatter={(label) => {
-                    try {
-                      const date = new Date(label)
-                      if (isNaN(date.getTime())) return label
-                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    } catch {
-                      return label
-                    }
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="#3B82F6" 
-                  strokeWidth={2}
-                  dot={{ fill: '#3B82F6', r: 3 }}
-                  activeDot={{ r: 5, fill: '#3B82F6' }}
-                  animationDuration={300}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div style={{
-            minHeight: '400px',
-            border: '2px dashed #e5e7eb',
-            borderRadius: '8px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#f9fafb',
-            padding: '48px'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
-            <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>
-              No Chart Data Available
-            </h3>
-            <p style={{ color: '#6b7280', marginBottom: '16px', textAlign: 'center' }}>
-              {error || 'No revenue data for the selected period'}
-            </p>
-          </div>
-        )}
+        <RevenueChart data={metrics.revenueChart || []} loading={loading} />
       </div>
 
       {/* Order Metrics */}

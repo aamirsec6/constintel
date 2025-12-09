@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import Button from '../../ui/Button'
+import { OnboardingLayout } from '../OnboardingLayout'
 
 interface IntegrationStepProps {
   data?: any
@@ -22,8 +23,8 @@ export default function IntegrationStep({ data, onNext, onBack, loading }: Integ
     }
   )
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault()
     onNext(integrations)
   }
 
@@ -39,53 +40,59 @@ export default function IntegrationStep({ data, onNext, onBack, loading }: Integ
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Connect Integrations</h2>
-        <p className="text-gray-600">
-          Connect your ecommerce platforms and services. You can set these up later if needed.
-        </p>
-      </div>
-
-      <div className="space-y-4">
+    <OnboardingLayout
+      title="Step 3 — Connect integrations"
+      subtitle="Connect ecommerce, messaging, and marketing systems. You can do this later."
+      onBack={onBack}
+      onSecondary={handleSkip}
+      secondaryLabel="Skip for now"
+      onPrimary={handleSubmit}
+      primaryLabel="Continue"
+      loading={loading}
+      footerSlot="You can always add or remove integrations later from settings."
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
         {[
-          { key: 'shopify', title: 'Shopify', description: 'Connect your Shopify store' },
-          { key: 'woocommerce', title: 'WooCommerce', description: 'Connect your WooCommerce store' },
-          { key: 'twilio', title: 'Twilio (WhatsApp)', description: 'Connect WhatsApp messaging' },
-        ].map((integration) => (
-          <div key={integration.key} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-gray-900">{integration.title}</h3>
-                <p className="text-sm text-gray-600">{integration.description}</p>
+          { key: 'shopify', title: 'Shopify', description: 'Sync orders, customers, and products.', icon: '🛍️' },
+          { key: 'woocommerce', title: 'WooCommerce', description: 'Connect your WooCommerce storefront.', icon: '🛒' },
+          { key: 'twilio', title: 'Twilio (WhatsApp)', description: 'Send and receive WhatsApp messages.', icon: '💬' },
+        ].map((integration) => {
+          const isEnabled = integrations[integration.key]?.enabled
+          return (
+            <div
+              key={integration.key}
+              className={`
+                rounded-xl border bg-slate-900/70 border-slate-800 px-4 py-4 transition-all duration-200
+                ${isEnabled ? 'ring-1 ring-indigo-500/50 shadow-[0_10px_40px_-24px_rgba(99,102,241,0.6)]' : 'hover:border-slate-700'}
+              `}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="text-xl">{integration.icon}</div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">{integration.title}</h3>
+                    <p className="text-xs text-slate-400">{integration.description}</p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant={isEnabled ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => toggleIntegration(integration.key)}
+                  className={
+                    isEnabled
+                      ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white border-none'
+                      : ''
+                  }
+                >
+                  {isEnabled ? 'Connected' : 'Connect'}
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant={integrations[integration.key]?.enabled ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={() => toggleIntegration(integration.key)}
-              >
-                {integrations[integration.key]?.enabled ? 'Connected' : 'Connect'}
-              </Button>
             </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex justify-between pt-4">
-        <Button type="button" variant="outline" onClick={onBack}>
-          Back
-        </Button>
-        <div className="flex gap-3">
-          <Button type="button" variant="secondary" onClick={handleSkip}>
-            Skip for Now
-          </Button>
-          <Button type="submit" isLoading={loading}>
-            Continue
-          </Button>
-        </div>
-      </div>
-    </form>
+          )
+        })}
+      </form>
+    </OnboardingLayout>
   )
 }
 

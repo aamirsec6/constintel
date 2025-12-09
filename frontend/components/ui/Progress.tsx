@@ -5,9 +5,10 @@ interface ProgressProps {
   max?: number
   className?: string
   showLabel?: boolean
+  indicatorClassName?: string
 }
 
-export function Progress({ value, max = 100, className, showLabel = false }: ProgressProps) {
+export function Progress({ value, max = 100, className, showLabel = false, indicatorClassName }: ProgressProps) {
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100)
 
   return (
@@ -20,7 +21,10 @@ export function Progress({ value, max = 100, className, showLabel = false }: Pro
       )}
       <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300 rounded-full"
+          className={cn(
+            'h-full transition-all duration-300 rounded-full',
+            indicatorClassName || 'bg-gradient-to-r from-blue-500 to-blue-600'
+          )}
           style={{ width: `${percentage}%` }}
         />
       </div>

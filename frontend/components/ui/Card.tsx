@@ -31,10 +31,9 @@ export default function Card({
   return (
     <div
       className={`
-        bg-card text-card-foreground rounded-2xl shadow-lg border-2 border-border/60
-        dark:border-border/40
-        transition-all duration-300 hover:shadow-2xl hover:border-border/80
-        backdrop-blur-sm
+        bg-card text-card-foreground rounded-lg border border-border/50
+        dark:border-border/30
+        transition-all duration-200 hover:border-border/70 hover:shadow-sm
         ${actualPadding}
         ${className}
       `}

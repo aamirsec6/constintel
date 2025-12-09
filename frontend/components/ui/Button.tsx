@@ -19,13 +19,13 @@ export default function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const baseStyles = 'font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseStyles = 'font-medium rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2';
   
   const variantStyles = {
-    primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
-    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-    outline: 'border-2 border-border text-foreground hover:bg-accent hover:text-accent-foreground',
-    danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    primary: 'bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-primary/50 shadow-sm hover:shadow',
+    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 focus:ring-secondary/50',
+    outline: 'border border-border text-foreground hover:bg-accent/50 hover:border-border/80 focus:ring-primary/50',
+    danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive/50',
   };
 
   const sizeStyles = {

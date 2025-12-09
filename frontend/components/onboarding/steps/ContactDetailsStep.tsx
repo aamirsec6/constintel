@@ -4,8 +4,8 @@
 'use client'
 
 import { useState } from 'react'
-import Button from '../../ui/Button'
 import Input from '../../ui/Input'
+import { OnboardingLayout } from '../OnboardingLayout'
 
 interface ContactDetailsStepProps {
   data?: {
@@ -49,73 +49,70 @@ export default function ContactDetailsStep({ data, onNext, onBack, loading }: Co
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (validate()) {
       onNext(formData)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Contact Details</h2>
-        <p className="text-gray-600">Additional contact information for your account.</p>
-      </div>
+    <OnboardingLayout
+      title="Step 2 — Contact details"
+      subtitle="Additional contact information for your account."
+      onBack={onBack}
+      onPrimary={handleSubmit}
+      primaryLabel="Continue"
+      loading={loading}
+      footerSlot="We’ll send account and billing notifications to this contact."
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Contact Person"
+            value={formData.contactPerson}
+            onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+            error={errors.contactPerson}
+            placeholder="John Doe"
+            required
+            helperText="Primary contact person"
+            className="bg-slate-900 border-slate-800 text-white"
+          />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Contact Email"
+            value={formData.contactEmail}
+            onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+            error={errors.contactEmail}
+            placeholder="contact@brand.com"
+            required
+            helperText="For notifications and account updates"
+            className="bg-slate-900 border-slate-800 text-white"
+          />
+        </div>
+
         <Input
-          label="Contact Person"
-          value={formData.contactPerson}
-          onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-          error={errors.contactPerson}
-          placeholder="e.g., John Doe"
-          required
-          helperText="Primary contact person"
+          label="Phone Number"
+          value={formData.phone}
+          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+          error={errors.phone}
+          placeholder="+1 (555) 123-4567"
+          helperText="Optional: business phone number"
+          className="bg-slate-900 border-slate-800 text-white"
         />
 
-        <Input
-          label="Contact Email"
-          value={formData.contactEmail}
-          onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-          error={errors.contactEmail}
-          placeholder="contact@brand.com"
-          required
-          helperText="For notifications and account updates"
-        />
-      </div>
-
-      <Input
-        label="Phone Number"
-        value={formData.phone}
-        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-        error={errors.phone}
-        placeholder="e.g., +1 (555) 123-4567"
-        helperText="Optional: Business phone number"
-      />
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Billing Address (optional)
-        </label>
-        <textarea
-          value={formData.billingAddress}
-          onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          rows={3}
-          placeholder="Street, City, State, Zip, Country"
-        />
-      </div>
-
-      <div className="flex justify-between pt-4">
-        <Button type="button" variant="outline" onClick={onBack}>
-          Back
-        </Button>
-        <Button type="submit" isLoading={loading}>
-          Continue
-        </Button>
-      </div>
-    </form>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-200">Billing Address (optional)</label>
+          <textarea
+            value={formData.billingAddress}
+            onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
+            className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition placeholder:text-slate-500 resize-none"
+            rows={3}
+            placeholder="Street, City, State, Zip, Country"
+          />
+        </div>
+      </form>
+    </OnboardingLayout>
   )
 }
 

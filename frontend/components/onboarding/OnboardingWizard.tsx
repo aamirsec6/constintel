@@ -7,13 +7,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import Card from '../ui/Card'
 import BrandInfoStep from './steps/BrandInfoStep'
 import ContactDetailsStep from './steps/ContactDetailsStep'
 import IntegrationStep from './steps/IntegrationStep'
 import ConfigurationStep from './steps/ConfigurationStep'
 import ReviewStep from './steps/ReviewStep'
 import ProvisioningStatus from './ProvisioningStatus'
+import { StepHeader } from './StepHeader'
+import { ProgressBar } from './ProgressBar'
 
 const TOTAL_STEPS = 5
 const PROVISIONING_STEP = 6
@@ -171,48 +172,29 @@ export default function OnboardingWizard({ initialStep = 1 }: { initialStep?: nu
   const displayStep = Math.min(currentStep, TOTAL_STEPS)
   const progressPct = Math.min(Math.round((displayStep / TOTAL_STEPS) * 100), 100)
 
+  const steps = [
+    { number: 1, label: 'Brand Info', description: 'Basics about your brand' },
+    { number: 2, label: 'Contact', description: 'Owner & billing details' },
+    { number: 3, label: 'Integrations', description: 'Connect your stack' },
+    { number: 4, label: 'Config', description: 'Timezone & currency' },
+    { number: 5, label: 'Review', description: 'Confirm & provision' },
+  ]
+
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Onboarding Wizard</h2>
-          <p className="text-muted-foreground">Let’s get you set up in a few guided steps.</p>
-        </div>
-        <div className="text-sm font-medium text-primary">
-          {progressPct}% Complete
-        </div>
-      </div>
+    <div className="space-y-6">
+      <StepHeader currentStep={displayStep} steps={steps} />
+      <ProgressBar currentStep={displayStep} totalSteps={TOTAL_STEPS} />
 
-      {/* Progress Indicator */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-muted-foreground">
-            Step {displayStep} of {TOTAL_STEPS}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {progressPct}% Complete
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-          <div
-            className="bg-primary h-2 rounded-full transition-all duration-300"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Error Message */}
       {error && (
-        <div className="mb-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-800">{error}</p>
+        <div className="p-3 bg-red-950/30 border border-red-900/70 text-sm text-red-200 rounded-lg">
+          {error}
         </div>
       )}
 
-      {/* Step Content */}
-      <Card padding="lg" className="shadow-xl border border-border/70 bg-card">
-        {renderStep()}
-      </Card>
+      <div className="relative">
+        <div className="absolute inset-0 blur-3xl bg-gradient-to-r from-indigo-500/10 via-blue-500/10 to-transparent rounded-3xl -z-10" />
+        <div className="relative">{renderStep()}</div>
+      </div>
     </div>
   )
 }

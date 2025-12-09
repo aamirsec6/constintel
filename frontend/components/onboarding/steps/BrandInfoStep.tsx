@@ -4,8 +4,8 @@
 'use client'
 
 import { useState } from 'react'
-import Button from '../../ui/Button'
 import Input from '../../ui/Input'
+import { OnboardingLayout } from '../OnboardingLayout'
 
 interface BrandInfoStepProps {
   data?: {
@@ -45,100 +45,94 @@ export default function BrandInfoStep({ data, onNext, loading }: BrandInfoStepPr
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (validate()) {
       onNext(formData)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Brand Information</h2>
-        <p className="text-gray-600">Tell us about your brand to get started.</p>
-      </div>
+    <OnboardingLayout
+      title="Step 1 — Tell us about your brand"
+      subtitle="This helps us personalize your setup."
+      onPrimary={handleSubmit}
+      primaryLabel="Continue"
+      loading={loading}
+      footerSlot="We’ll tailor recommendations based on these details."
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Brand Name *"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            error={errors.name}
+            placeholder="Acme Inc"
+            required
+            className="bg-slate-900 border-slate-800 text-white"
+          />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Brand Name *"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          error={errors.name}
-          placeholder="e.g., Acme Inc"
-          required
-        />
-
-        <Input
-          label="Website Domain"
-          value={formData.domain}
-          onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-          error={errors.domain}
-          placeholder="e.g., acme.com or shop.acme.co.in"
-          helperText="Optional"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Industry
-          </label>
-          <select
-            value={formData.industry}
-            onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select an industry...</option>
-            <option value="fashion">Fashion & Apparel</option>
-            <option value="electronics">Electronics</option>
-            <option value="food">Food & Beverage</option>
-            <option value="beauty">Beauty & Cosmetics</option>
-            <option value="home">Home & Garden</option>
-            <option value="sports">Sports & Outdoors</option>
-            <option value="books">Books & Media</option>
-            <option value="other">Other</option>
-          </select>
+          <Input
+            label="Website Domain"
+            value={formData.domain}
+            onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+            error={errors.domain}
+            placeholder="shop.acme.com"
+            helperText="Optional"
+            className="bg-slate-900 border-slate-800 text-white"
+          />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Company Size
-          </label>
-          <select
-            value={formData.companySize}
-            onChange={(e) => setFormData({ ...formData, companySize: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select company size...</option>
-            <option value="1-10">1-10 employees</option>
-            <option value="11-50">11-50 employees</option>
-            <option value="51-200">51-200 employees</option>
-            <option value="201-500">201-500 employees</option>
-            <option value="500+">500+ employees</option>
-          </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-200">Industry</label>
+            <select
+              value={formData.industry}
+              onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition"
+            >
+              <option value="">Select an industry...</option>
+              <option value="fashion">Fashion & Apparel</option>
+              <option value="electronics">Electronics</option>
+              <option value="food">Food & Beverage</option>
+              <option value="beauty">Beauty & Cosmetics</option>
+              <option value="home">Home & Garden</option>
+              <option value="sports">Sports & Outdoors</option>
+              <option value="books">Books & Media</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-200">Company Size</label>
+            <select
+              value={formData.companySize}
+              onChange={(e) => setFormData({ ...formData, companySize: e.target.value })}
+              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition"
+            >
+              <option value="">Select company size...</option>
+              <option value="1-10">1-10 employees</option>
+              <option value="11-50">11-50 employees</option>
+              <option value="51-200">51-200 employees</option>
+              <option value="201-500">201-500 employees</option>
+              <option value="500+">500+ employees</option>
+            </select>
+          </div>
         </div>
-      </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description
-        </label>
-        <textarea
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          rows={3}
-          placeholder="Briefly describe your business and key channels."
-        />
-      </div>
-
-      <div className="flex justify-end pt-4">
-        <Button type="submit" isLoading={loading}>
-          Continue
-        </Button>
-      </div>
-    </form>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-200">Description</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/60 transition placeholder:text-slate-500 resize-none"
+            rows={4}
+            placeholder="Briefly describe your business and key channels."
+          />
+        </div>
+      </form>
+    </OnboardingLayout>
   )
 }
 
